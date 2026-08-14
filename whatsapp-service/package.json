@@ -1,0 +1,21 @@
+﻿{
+    "scripts":  {
+                    "start":  "node index.js"
+                },
+    "description":  "Microservicio de WhatsApp (Baileys) para PharmaTrack",
+    "type":  "module",
+    "version":  "0.1.0",
+    "engines":  {
+                    "node":  "20.x"
+                },
+    "name":  "pharmatrack-whatsapp-service",
+    "private":  true,
+    "main":  "index.js",
+    "dependencies":  {
+                         "@supabase/supabase-js":  "^2.45.0",
+                         "qrcode-terminal":  "^0.12.0",
+                         "express":  "^4.19.2",
+                         "pino":  "^9.3.2",
+                         "@whiskeysockets/baileys":  "^6.7.9"
+                     }
+}

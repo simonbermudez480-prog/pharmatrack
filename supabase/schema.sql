@@ -325,3 +325,84 @@ create trigger on_auth_user_created
 --   select * from public.suscripciones limit 1;
 -- ============================================================
 
+-- ============================================================
+-- 10. CRON — disparar recordatorios cada hora
+-- ------------------------------------------------------------
+-- PASOS PREVIOS (manual, desde Supabase Dashboard):
+-- 1) Database → Extensions → habilitar "pg_cron" (si no está)
+-- 2) Database → Extensions → habilitar "pg_net"  (si no está)
+--    Ambos vienen preinstalados en Supabase, solo hay que marcarlos ON.
+--
+-- Después de habilitar las extensiones, correr las sentencias de abajo.
+--
+-- IMPORTANTE: reemplazar TU_URL_DE_RENDER y TU_CRON_SECRET por los
+-- valores reales ANTES de correr el cron.schedule().
+-- ============================================================
+
+-- Extensiones
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+-- Schema donde pg_cron guarda sus jobs (Supabase recomienda "cron")
+-- Por default el job corre en la DB "postgres" (que es la única de Supabase).
+
+-- Función que llama al microservicio de WhatsApp
+-- CUIDADO: si la función ya existe, la reemplazamos.
+create or replace function public.disparar_recordatorios_whatsapp()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  -- ⚠️ Reemplazar antes de usar:
+  url_microservicio text := 'https://TU_URL_DE_RENDER.onrender.com/api/send-reminders';
+  cron_secret        text := 'TU_CRON_SECRET_AQUI';
+  respuesta          json;
+begin
+  -- Llama al endpoint del microservicio de WhatsApp via POST
+  -- pg_net: http_post(url, body, headers, timeout_ms)
+  select net.http_post(
+    url      := url_microservicio,
+    headers  := jsonb_build_object(
+      'Content-Type',  'application/json',
+      'x-cron-secret', cron_secret
+    ),
+    body     := '{}'::jsonb
+  ) into respuesta;
+
+  -- Loguea resultado en pg_net.pending_jobs (se ve en Supabase logs)
+  raise notice 'Disparo enviado a % - estado: %',
+    url_microservicio, coalesce(respuesta->>'status', 'sin_respuesta');
+end;
+$$;
+
+-- Borra job previo si existe (idempotente)
+do $$
+begin
+  if exists (select 1 from cron.job where jobname = 'pharmatrack-recordatorios') then
+    perform cron.unschedule('pharmatrack-recordatorios');
+  end if;
+end $$;
+
+-- Programa el cron: cada hora en el minuto 0 (ej: 13:00, 14:00, 15:00)
+-- Formato cron estándar de 5 campos: min hour day month weekday
+select cron.schedule(
+  'pharmatrack-recordatorios',
+  '0 * * * *',
+  $$ select public.disparar_recordatorios_whatsapp(); $$
+);
+
+-- ============================================================
+-- Para DESACTIVAR el cron (si querés pausar los envíos):
+--   select cron.unschedule('pharmatrack-recordatorios');
+--
+-- Para VER los jobs activos:
+--   select jobid, jobname, schedule, active from cron.job;
+--
+-- Para ver logs del último disparo:
+--   select * from pg_net._http_response
+--    order by id desc limit 5;
+-- ============================================================
+
+
