@@ -1,3 +1,6 @@
+/* Playfair Display (serif para logo y citas) — cargada en runtime del navegador
+   para evitar que next/font la descargue en build (causa 404 en Vercel). */
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap");
 @import "tailwindcss";
 
 /* ============================================================
@@ -26,7 +29,7 @@
   /* Fuentes */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-manrope), var(--font-inter), ui-sans-serif, sans-serif;
-  --font-serif: var(--font-playfair), ui-serif, Georgia, serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
 
   /* Radios y sombras */
   --radius-card: 24px;
