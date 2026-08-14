@@ -111,6 +111,7 @@ export async function createSubscription(
 
   if (!res.ok) {
     const txt = await res.text();
+    console.error(`[paypal] createSubscription ${res.status}:`, txt, "| plan_id:", planId);
     throw new Error(`PayPal createSubscription failed: ${res.status} ${txt}`);
   }
   const data = (await res.json()) as PayPalSubscriptionResponse & {

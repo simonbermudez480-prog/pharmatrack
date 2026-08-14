@@ -31,11 +31,14 @@ export async function POST(request: Request) {
       cancel_url: cancelUrl,
     });
 
+    console.log("[paypal] Subscription created OK:", { id, approveUrl });
+
     return NextResponse.json({
       subscriptionId: id,
       approveUrl,
     });
   } catch (err) {
+    console.error("[paypal] createSubscription error:", err instanceof Error ? err.message : err);
     const msg = err instanceof Error ? err.message : "Error interno.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
