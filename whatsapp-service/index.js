@@ -100,7 +100,7 @@ console.log("[whatsapp] safeAuthState keys own props:", Object.getOwnPropertyNam
 }
 
 sock = makeWASocket({
-  authState: safeAuthState,
+  auth: safeAuthState,
   browser: Browsers.macOS("PharmaTrack"),
   logger: pino({ level: "warn" }),
   printQRInTerminal: false,
