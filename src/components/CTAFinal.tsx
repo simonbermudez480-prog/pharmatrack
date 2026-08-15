@@ -1,5 +1,5 @@
 const TRUST = [
-  "Sin tarjeta de crédito",
+  "3 días gratis con tarjeta",
   "Cancelas cuando quieras",
   "Soporte por WhatsApp",
   "+180 farmacias activas",
@@ -15,7 +15,7 @@ export function CTAFinal() {
         </h2>
 
         <p className="mt-6 text-lg text-forest-ink/75 max-w-xl mx-auto leading-relaxed">
-          Dos semanas gratis. Implementación en 1 día. Sin compromiso. Si
+          3 días gratis. Implementación en 1 día. Sin compromiso. Si
           PharmaTrack no recupera al menos a 5 pacientes crónicos el primer
           mes,{" "}
           <span className="font-semibold text-forest">
@@ -28,7 +28,7 @@ export function CTAFinal() {
             href="/registro"
             className="inline-flex items-center justify-center gap-2 h-14 px-8 rounded-btn bg-forest text-white font-bold text-base hover:bg-forest-dark transition-all hover:scale-[1.02] shadow-[0_8px_24px_rgba(11,61,46,0.25)]"
           >
-            2 semanas gratis, sin compromiso. Escríbenos →
+            3 días gratis, con tarjeta. Escríbenos →
           </a>
           <p className="mt-3 text-sm text-forest-ink/55">
             Respondemos en menos de 2 horas hábiles.

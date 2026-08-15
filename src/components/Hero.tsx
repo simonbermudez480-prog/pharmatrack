@@ -46,10 +46,10 @@ export function Hero() {
               href="/registro"
               className="inline-flex items-center justify-center gap-2 h-14 px-7 rounded-btn bg-forest text-white font-bold text-base hover:bg-forest-dark transition-all hover:scale-[1.02] shadow-[0_8px_24px_rgba(11,61,46,0.25)]"
             >
-              2 semanas gratis, sin compromiso. Escríbenos →
+              3 días gratis, con tarjeta. Escríbenos →
             </a>
             <p className="mt-3 text-sm text-forest-ink/55">
-              Sin tarjeta de crédito · Cancelas cuando quieras · Implementación
+              3 días gratis con tarjeta · Cancelas cuando quieras · Implementación
               en 1 día
             </p>
           </div>

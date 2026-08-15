@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 export const metadata: Metadata = {
   title: "Precios — PharmaTrack",
   description:
-    "3 planes para farmacias independientes. Empezá tus 2 semanas gratis, sin tarjeta de crédito.",
+    "3 planes para farmacias independientes. Empezá tus 3 días gratis con tarjeta.",
 };
 
 const PLANS = [
@@ -97,7 +97,7 @@ export default async function PreciosPage() {
               <span className="u-accent-underline">sin sorpresas</span>
             </h1>
             <p className="mt-5 text-lg text-forest-ink/75">
-              2 semanas gratis sin tarjeta. Después del trial, elegís el plan que
+              3 días gratis con tarjeta. Después del trial, elegís el plan que
               mejor encaja con tu farmacia. Cancelás cuando quieras.
             </p>
           </div>
@@ -195,8 +195,8 @@ export default async function PreciosPage() {
           {/* Garantías */}
           <div className="mt-12 grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
             {[
-              ["14 días", "de prueba gratis"],
-              ["Sin tarjeta", "para registrarte"],
+              ["3 días", "de prueba gratis"],
+              ["Con tarjeta", "para registrarte"],
               ["Cancelás", "cuando quieras"],
             ].map(([a, b]) => (
               <div key={a} className="text-center">
@@ -214,7 +214,7 @@ export default async function PreciosPage() {
             <div className="space-y-6">
               <FAQ
                 q="¿Cuando cobran?"
-                a="Tenés 14 días gratis desde que te registrás. Si no pagás al terminarse el trial, el panel queda en pausa — no cobramos sorpresivamente."
+                a="Tenés 3 días gratis con tarjeta desde que te registrás. Si no pagás al terminarse el trial, el panel queda en pausa — no cobramos sorpresivamente."
               />
               <FAQ
                 q="¿Qué pasa si me paso del límite de pacientes?"
