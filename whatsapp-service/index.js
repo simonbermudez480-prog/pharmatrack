@@ -84,24 +84,64 @@ async function startWhatsApp() {
       throw new Error("No se pudo inicializar auth state con creds válidos");
     }
 
+    // Debug: inspeccionar authState.keys en detalle
+    console.log("[whatsapp] authState.keys constructor:", authState.keys?.constructor?.name);
+    console.log("[whatsapp] authState.keys prototype:", Object.getPrototypeOf(authState.keys)?.constructor?.name);
+    console.log("[whatsapp] authState.keys own keys:", Object.getOwnPropertyNames(authState.keys));
+    console.log("[whatsapp] authState.keys symbols:", Object.getOwnPropertySymbols(authState.keys));
+    console.log("[whatsapp] typeof authState.keys.get:", typeof authState.keys?.get);
+    console.log("[whatsapp] typeof authState.keys.set:", typeof authState.keys?.set);
+    console.log("[whatsapp] typeof authState.keys.entries:", typeof authState.keys?.entries);
+    console.log("[whatsapp] typeof authState.keys.forEach:", typeof authState.keys?.forEach);
+    console.log("[whatsapp] Symbol.iterator:", typeof authState.keys?.[Symbol.iterator]);
+
     // Crear objeto plano para evitar problemas de Proxy/getters en ESM
     // keys es un Map-like, convertirlo a objeto plano iterando sus entries
     let keysObj = {};
     if (authState.keys && typeof authState.keys === 'object') {
       // Probar si es un Map con entries()
       if (typeof authState.keys.entries === 'function') {
+        console.log("[whatsapp] Usando entries()");
         for (const [key, value] of authState.keys.entries()) {
           keysObj[key] = value;
         }
       } 
       // Probar si tiene forEach (Map-like)
       else if (typeof authState.keys.forEach === 'function') {
+        console.log("[whatsapp] Usando forEach()");
         authState.keys.forEach((value, key) => {
           keysObj[key] = value;
         });
       }
+      // Probar si es iterable
+      else if (typeof authState.keys[Symbol.iterator] === 'function') {
+        console.log("[whatsapp] Usando Symbol.iterator");
+        for (const [key, value] of authState.keys) {
+          keysObj[key] = value;
+        }
+      }
+      // Si tiene get/set pero no iteradores, intentar obtener claves conocidas
+      else if (typeof authState.keys.get === 'function') {
+        console.log("[whatsapp] keys solo tiene get/set, intentando claves conocidas de Baileys...");
+        // Claves típicas del KeyStore de Baileys
+        const knownKeys = [
+          'preKey', 'session', 'senderKey', 'appStateSyncKey', 
+          'senderKeyMemory', 'preKeyId', 'signedPreKeyId'
+        ];
+        for (const key of knownKeys) {
+          try {
+            const value = authState.keys.get(key);
+            if (value !== undefined) {
+              keysObj[key] = value;
+            }
+          } catch (e) {
+            // Ignorar
+          }
+        }
+      }
       // Fallback: Object.keys (solo para objetos planos)
       else {
+        console.log("[whatsapp] Usando Object.keys fallback");
         for (const key of Object.keys(authState.keys)) {
           try {
             keysObj[key] = authState.keys[key];
