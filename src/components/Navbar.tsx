@@ -60,7 +60,7 @@ export function Navbar() {
             href="/registro"
             className="inline-flex items-center justify-center h-11 px-5 rounded-btn bg-accent/10 text-forest font-semibold text-sm border border-accent/30 hover:bg-accent hover:text-white transition-colors"
           >
-            2 semanas gratis
+            3 días gratis
           </a>
         </div>
 
@@ -118,7 +118,7 @@ export function Navbar() {
                 onClick={() => setOpen(false)}
                 className="flex-1 flex items-center justify-center h-12 rounded-btn bg-accent text-white font-semibold"
               >
-                2 semanas gratis
+                3 días gratis
               </a>
             </li>
           </ul>
