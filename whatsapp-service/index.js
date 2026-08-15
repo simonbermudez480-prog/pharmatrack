@@ -293,8 +293,9 @@ app.post("/api/send-reminders", async (req, res) => {
 
     for (const p of pacientes) {
       try {
-        // Recupera nombre_farmacia del usuario desde auth.users (service role puede leer auth.users)
+        // Recupera nombre_farmacia del usuario desde auth.users (service role con schema auth)
         const { data: userData, error: userError } = await supabase
+          .schema('auth')
           .from("users")
           .select("raw_user_meta_data")
           .eq("id", p.user_id)
