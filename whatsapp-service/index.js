@@ -293,18 +293,15 @@ app.post("/api/send-reminders", async (req, res) => {
 
     for (const p of pacientes) {
       try {
-        // Recupera nombre_farmacia del usuario desde auth.users (service role con schema auth)
-        const { data: userData, error: userError } = await supabase
-          .schema('auth')
-          .from("users")
-          .select("raw_user_meta_data")
-          .eq("id", p.user_id)
-          .single();
+        // Recupera nombre_farmacia via RPC (lee auth.users con security definer)
+        const { data: farmaciaNombre, error: userError } = await supabase
+          .rpc('get_farmacia_nombre', { p_user_id: p.user_id });
         
-        let farmaciaNombre = "tu farmacia";
-        if (!userError && userData?.raw_user_meta_data) {
-          farmaciaNombre = userData.raw_user_meta_data.nombre_farmacia ?? "tu farmacia";
-        } else if (userError) {
+        const finalFarmaciaNombre = (farmaciaNombre && farmaciaNombre !== 'tu farmacia') 
+          ? farmaciaNombre 
+          : "tu farmacia";
+        
+        if (userError) {
           console.warn(`[warn] No se pudo leer metadata para user_id ${p.user_id}:`, userError.message);
         }
 
@@ -317,7 +314,7 @@ app.post("/api/send-reminders", async (req, res) => {
 
         // Envía el mensaje
         if (p.canal_pref === "whatsapp" && p.telefono) {
-          const message = buildReminderMessage(p, farmaciaNombre, reminderType);
+          const message = buildReminderMessage(p, finalFarmaciaNombre, reminderType);
           await sendWhatsApp(p.telefono, message);
           console.log(`[whatsapp] ${reminderType} enviado a ${p.nombre} (${p.telefono})`);
 
