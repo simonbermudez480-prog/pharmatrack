@@ -82,13 +82,21 @@ async function startWhatsApp() {
     if (!authState || !authState.creds) {
       throw new Error("No se pudo inicializar auth state con creds válidos");
     }
+
+    // Crear objeto plano para evitar problemas de Proxy/getters en ESM
+    const plainAuthState = {
+      creds: { ...authState.creds },
+      keys: { ...authState.keys },
+    };
+    console.log("[whatsapp] plainAuthState creds keys:", Object.keys(plainAuthState.creds));
+    console.log("[whatsapp] plainAuthState keys keys:", Object.keys(plainAuthState.keys));
   } catch (err) {
     console.error("[whatsapp] Error fatal cargando auth state:", err.message);
     throw err;
   }
 
   sock = makeWASocket({
-    authState,
+    authState: plainAuthState,
     browser: Browsers.macOS("PharmaTrack"),
     logger: pino({ level: "warn" }),
     printQRInTerminal: false,
