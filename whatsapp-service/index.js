@@ -15,6 +15,8 @@ import {
 } from "@whiskeysockets/baileys";
 import pino from "pino";
 import { createClient } from "@supabase/supabase-js";
+import fs from "fs";
+import path from "path";
 
 // ------------------------------------------------------------
 // Configuración (env vars requeridas)
@@ -41,10 +43,37 @@ let connectionStatus = "idle"; // idle | connecting | open | closed | qr
 
 async function startWhatsApp() {
   connectionStatus = "connecting";
-  const { state, saveCreds } = await useMultiFileAuthState("./auth_baileys");
+
+  // Asegurar que el directorio de auth exista y sea escribible
+  const authDir = path.resolve("./auth_baileys");
+  if (!fs.existsSync(authDir)) {
+    fs.mkdirSync(authDir, { recursive: true });
+    console.log(`[whatsapp] Directorio de auth creado: ${authDir}`);
+  }
+
+  let authState;
+  let saveCreds;
+  try {
+    const result = await useMultiFileAuthState(authDir);
+    authState = result.state;
+    saveCreds = result.saveCreds;
+    if (!authState || !authState.creds) {
+      throw new Error("Auth state inválido: creds no definido");
+    }
+  } catch (err) {
+    console.error("[whatsapp] Error cargando auth state:", err.message);
+    // Si falla, limpiar e intentar de nuevo
+    if (fs.existsSync(authDir)) {
+      fs.rmSync(authDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(authDir, { recursive: true });
+    const result = await useMultiFileAuthState(authDir);
+    authState = result.state;
+    saveCreds = result.saveCreds;
+  }
 
   sock = makeWASocket({
-    authState: state,
+    authState,
     browser: Browsers.macOS("PharmaTrack"),
     logger: pino({ level: "warn" }),
     printQRInTerminal: false,
