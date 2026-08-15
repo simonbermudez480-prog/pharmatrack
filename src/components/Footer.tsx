@@ -21,7 +21,7 @@ const FOOTER_COLS = [
     title: "Contacto",
     links: [
       { label: "hola@pharmatrack.co", href: "mailto:hola@pharmatrack.co" },
-      { label: "WhatsApp +57 ___", href: "#" },
+      { label: "WhatsApp +58 4268316691", href: "https://wa.me/584268316691" },
       { label: "Medellín, Colombia", href: "#" },
     ],
   },
@@ -71,14 +71,18 @@ export function Footer() {
             farmacias independientes.
           </p>
           <ul className="flex items-center gap-5">
-            {["X", "LinkedIn", "Instagram"].map((s) => (
-              <li key={s}>
+            {[
+              { name: "X", href: "#" },
+              { name: "LinkedIn", href: "#" },
+              { name: "Instagram", href: "https://www.instagram.com/phaarma.track/" },
+            ].map((s) => (
+              <li key={s.name}>
                 <a
-                  href="#"
-                  aria-label={s}
+                  href={s.href}
+                  aria-label={s.name}
                   className="text-xs text-white/60 hover:text-accent-soft transition-colors"
                 >
-                  {s}
+                  {s.name}
                 </a>
               </li>
             ))}
