@@ -293,12 +293,19 @@ app.post("/api/send-reminders", async (req, res) => {
 
     for (const p of pacientes) {
       try {
-        // Recupera nombre_farmacia del usuario
-        const { data: userData } = await supabase
-          .auth.admin.getUserById(p.user_id)
-          .catch(() => ({ data: { user: { user_metadata: {} } } }));
-        const farmaciaNombre =
-          userData?.data?.user?.user_metadata?.nombre_farmacia ?? "tu farmacia";
+        // Recupera nombre_farmacia del usuario desde auth.users (service role puede leer auth.users)
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("raw_user_meta_data")
+          .eq("id", p.user_id)
+          .single();
+        
+        let farmaciaNombre = "tu farmacia";
+        if (!userError && userData?.raw_user_meta_data) {
+          farmaciaNombre = userData.raw_user_meta_data.nombre_farmacia ?? "tu farmacia";
+        } else if (userError) {
+          console.warn(`[warn] No se pudo leer metadata para user_id ${p.user_id}:`, userError.message);
+        }
 
         // Determinar tipo de recordatorio actual
         const reminderType = getCurrentReminderType(p);
