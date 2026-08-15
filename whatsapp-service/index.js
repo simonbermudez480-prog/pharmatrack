@@ -85,17 +85,34 @@ async function startWhatsApp() {
     }
 
     // Crear objeto plano para evitar problemas de Proxy/getters en ESM
-    // keys es un objeto tipo Map con get/set, convertirlo a objeto plano
-    const keysObj = {};
+    // keys es un Map-like, convertirlo a objeto plano iterando sus entries
+    let keysObj = {};
     if (authState.keys && typeof authState.keys === 'object') {
-      for (const key of Object.keys(authState.keys)) {
-        try {
-          keysObj[key] = authState.keys[key];
-        } catch (e) {
-          // Ignorar getters/setters que fallen
+      // Probar si es un Map con entries()
+      if (typeof authState.keys.entries === 'function') {
+        for (const [key, value] of authState.keys.entries()) {
+          keysObj[key] = value;
+        }
+      } 
+      // Probar si tiene forEach (Map-like)
+      else if (typeof authState.keys.forEach === 'function') {
+        authState.keys.forEach((value, key) => {
+          keysObj[key] = value;
+        });
+      }
+      // Fallback: Object.keys (solo para objetos planos)
+      else {
+        for (const key of Object.keys(authState.keys)) {
+          try {
+            keysObj[key] = authState.keys[key];
+          } catch (e) {
+            // Ignorar getters/setters que fallen
+          }
         }
       }
     }
+    console.log("[whatsapp] keysObj keys:", Object.keys(keysObj));
+    
     plainAuthState = {
       creds: { ...authState.creds },
       keys: keysObj,
