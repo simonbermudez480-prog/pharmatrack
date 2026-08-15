@@ -106,34 +106,50 @@ sock = makeWASocket({
   printQRInTerminal: false,
 });
 
-  sock.ev.on("creds.update", saveCreds);
+sock.ev.on("creds.update", saveCreds);
 
-  sock.ev.on("connection.update", (update) => {
-    const { connection, qr, lastDisconnect } = update;
+// Manejar errores inesperados (ej: timeout en init queries en Render free tier)
+sock.ev.on("connection.update", (update) => {
+  const { connection, qr, lastDisconnect } = update;
 
-    if (qr) {
-      connectionStatus = "qr";
-      console.log("\n\n=========== ESCANEA ESTE QR EN TU WHATSAPP ===========");
-      qrcode.generate(qr, { small: true });
-      console.log("====================================================\n\n");
+  if (qr) {
+    connectionStatus = "qr";
+    console.log("\n\n=========== ESCANEA ESTE QR EN TU WHATSAPP ===========");
+    qrcode.generate(qr, { small: true });
+    console.log("====================================================\n\n");
+  }
+
+  if (connection === "open") {
+    connectionStatus = "open";
+    console.log("[whatsapp] Conexión abierta. Listo para enviar.");
+  }
+
+  if (connection === "close") {
+    connectionStatus = "closed";
+    const code = lastDisconnect?.error?.output?.statusCode;
+    console.warn(`[whatsapp] Conexión cerrada (código ${code}). Reconectando en 5s…`);
+    if (code === DisconnectReason.loggedOut) {
+      console.error("[whatsapp] Sesión cerrada desde el teléfono. Borrá ./auth_baileys para re-escanear QR.");
+    } else {
+      setTimeout(startWhatsApp, 5000);
     }
+  }
+});
 
-    if (connection === "open") {
-      connectionStatus = "open";
-      console.log("[whatsapp] Conexión abierta. Listo para enviar.");
-    }
+// Capturar errores de init queries y forzar reconexión
+sock.ws.on("error", (err) => {
+  console.error("[whatsapp] WebSocket error:", err.message);
+});
 
-    if (connection === "close") {
-      connectionStatus = "closed";
-      const code = lastDisconnect?.error?.output?.statusCode;
-      console.warn(`[whatsapp] Conexión cerrada (código ${code}). Reconectando en 5s…`);
-      if (code === DisconnectReason.loggedOut) {
-        console.error("[whatsapp] Sesión cerrada desde el teléfono. Borrá ./auth_baileys para re-escanear QR.");
-      } else {
-        setTimeout(startWhatsApp, 5000);
-      }
-    }
-  });
+sock.ev.on("connection.update", (update) => {
+  if (update.connection === "close") return; // ya manejado arriba
+  
+  // Detectar error de timeout en init queries
+  if (update.lastDisconnect?.error?.output?.statusCode === 408) {
+    console.warn("[whatsapp] Timeout en init queries (408), forzando reconexión...");
+    sock.end(undefined, { description: "init queries timeout", isLoggedOut: false });
+  }
+});
 }
 
 // ------------------------------------------------------------
