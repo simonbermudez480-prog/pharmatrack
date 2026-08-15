@@ -82,31 +82,29 @@ async function startWhatsApp() {
     
     if (!authState || !authState.creds) {
       throw new Error("No se pudo inicializar auth state con creds válidos");
-    }
+}
 
-    // El authState original YA tiene la estructura correcta:
-    // - creds: objeto con las credenciales
-    // - keys: KeyStore con métodos get(key) y set(key, value)
-    // NO convertir a objeto plano, eso rompe el KeyStore.
-    // El problema del destructuring era por Proxy; usamos Object.assign para crear un objeto plano simple
-    // que mantenga la referencia a keys (que SÍ debe tener get/set).
-    safeAuthState = {
-      creds: authState.creds,
-      keys: authState.keys,  // Mantener el KeyStore original con get/set
-    };
-    console.log("[whatsapp] safeAuthState listo, keys tiene get/set:", 
-      typeof safeAuthState.keys?.get === 'function' && typeof safeAuthState.keys?.set === 'function');
-  } catch (err) {
-    console.error("[whatsapp] Error fatal cargando auth state:", err.message);
-    throw err;
-  }
+// El authState original YA tiene la estructura correcta:
+// - creds: objeto con las credenciales
+// - keys: KeyStore con métodos get(key) y set(key, value)
+// Pasar el authState ORIGINAL directamente (lo que Baileys espera)
+safeAuthState = authState;
+console.log("[whatsapp] Pasando authState original a makeWASocket");
+console.log("[whatsapp] safeAuthState.creds existe:", !!safeAuthState.creds);
+console.log("[whatsapp] safeAuthState.keys tiene get/set:", 
+  typeof safeAuthState.keys?.get === 'function' && typeof safeAuthState.keys?.set === 'function');
+console.log("[whatsapp] safeAuthState keys own props:", Object.getOwnPropertyNames(safeAuthState));
+} catch (err) {
+  console.error("[whatsapp] Error fatal cargando auth state:", err.message);
+  throw err;
+}
 
-  sock = makeWASocket({
-    authState: safeAuthState,
-    browser: Browsers.macOS("PharmaTrack"),
-    logger: pino({ level: "warn" }),
-    printQRInTerminal: false,
-  });
+sock = makeWASocket({
+  authState: safeAuthState,
+  browser: Browsers.macOS("PharmaTrack"),
+  logger: pino({ level: "warn" }),
+  printQRInTerminal: false,
+});
 
   sock.ev.on("creds.update", saveCreds);
 
