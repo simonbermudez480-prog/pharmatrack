@@ -57,19 +57,29 @@ async function startWhatsApp() {
     const result = await useMultiFileAuthState(authDir);
     authState = result.state;
     saveCreds = result.saveCreds;
+    console.log("[whatsapp] Auth state cargado:", Object.keys(authState || {}));
+    console.log("[whatsapp] Creds existe:", !!authState?.creds);
+    
+    // Si no hay creds, forzar inicialización
     if (!authState || !authState.creds) {
-      throw new Error("Auth state inválido: creds no definido");
+      console.warn("[whatsapp] Creds no encontrado, forzando reinicio de auth...");
+      if (fs.existsSync(authDir)) {
+        fs.rmSync(authDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(authDir, { recursive: true });
+      const freshResult = await useMultiFileAuthState(authDir);
+      authState = freshResult.state;
+      saveCreds = freshResult.saveCreds;
+      console.log("[whatsapp] Nuevo auth state:", Object.keys(authState || {}));
+      console.log("[whatsapp] Nuevo creds existe:", !!authState?.creds);
+    }
+    
+    if (!authState || !authState.creds) {
+      throw new Error("No se pudo inicializar auth state con creds válidos");
     }
   } catch (err) {
-    console.error("[whatsapp] Error cargando auth state:", err.message);
-    // Si falla, limpiar e intentar de nuevo
-    if (fs.existsSync(authDir)) {
-      fs.rmSync(authDir, { recursive: true, force: true });
-    }
-    fs.mkdirSync(authDir, { recursive: true });
-    const result = await useMultiFileAuthState(authDir);
-    authState = result.state;
-    saveCreds = result.saveCreds;
+    console.error("[whatsapp] Error fatal cargando auth state:", err.message);
+    throw err;
   }
 
   sock = makeWASocket({
