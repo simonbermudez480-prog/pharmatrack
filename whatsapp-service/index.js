@@ -53,6 +53,7 @@ async function startWhatsApp() {
 
   let authState;
   let saveCreds;
+  let safeAuthState;
   try {
     const result = await useMultiFileAuthState(authDir);
     authState = result.state;
@@ -89,7 +90,7 @@ async function startWhatsApp() {
     // NO convertir a objeto plano, eso rompe el KeyStore.
     // El problema del destructuring era por Proxy; usamos Object.assign para crear un objeto plano simple
     // que mantenga la referencia a keys (que SÍ debe tener get/set).
-    const safeAuthState = {
+    safeAuthState = {
       creds: authState.creds,
       keys: authState.keys,  // Mantener el KeyStore original con get/set
     };
