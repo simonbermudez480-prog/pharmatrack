@@ -36,6 +36,66 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 });
 
 // ------------------------------------------------------------
+// ESQUEMA DE RECORDATORIOS INTELIGENTES
+// ------------------------------------------------------------
+const REMINDER_SCHEDULE = [
+  // Pre-vencimiento (negativo = días antes del vencimiento)
+  { type: 'pre_3d',        offsetDays: -3,  label: '3 días antes' },
+  { type: 'pre_1d',        offsetDays: -1,  label: '1 día antes' },
+  { type: 'vencimiento',   offsetDays: 0,   label: 'Día de vencimiento' },
+  // Post-vencimiento (positivo = días después del vencimiento)
+  { type: 'post_3d',       offsetDays: 3,   label: '3 días después' },
+  { type: 'post_7d_1',     offsetDays: 7,   label: '7 días después (1)' },
+  { type: 'post_7d_2',     offsetDays: 14,  label: '7 días después (2)' },
+  { type: 'post_7d_3',     offsetDays: 21,  label: '7 días después (3)' },
+];
+
+function getCurrentReminderType(paciente) {
+  const enviados = paciente.recordatorios_enviados ?? 0;
+  if (enviados >= REMINDER_SCHEDULE.length) return 'completado';
+  return REMINDER_SCHEDULE[enviados].type;
+}
+
+function calculateNextReminderDate(paciente, now = new Date()) {
+  const enviados = paciente.recordatorios_enviados ?? 0;
+  if (enviados >= REMINDER_SCHEDULE.length) return null;
+  
+  const vencimiento = new Date(paciente.fecha_vencimiento);
+  if (isNaN(vencimiento.getTime())) {
+    // Fallback: si no hay fecha_vencimiento, usar +7 días desde ahora
+    const next = new Date(now);
+    next.setDate(next.getDate() + 7);
+    return next.toISOString();
+  }
+  
+  const next = REMINDER_SCHEDULE[enviados];
+  const fecha = new Date(vencimiento);
+  fecha.setDate(fecha.getDate() + next.offsetDays);
+  
+  // Si la fecha calculada ya pasó, mandar ahora
+  if (fecha < now) return now.toISOString();
+  return fecha.toISOString();
+}
+
+function buildReminderMessage(paciente, farmaciaNombre, reminderType) {
+  const mensajes = {
+    pre_3d:        `Faltan 3 días para que venza tu tratamiento`,
+    pre_1d:        `Mañana vence tu tratamiento`,
+    vencimiento:   `Hoy vence tu tratamiento`,
+    post_3d:       `Han pasado 3 días desde el vencimiento de tu tratamiento`,
+    post_7d_1:     `Ha pasado 1 semana desde el vencimiento de tu tratamiento`,
+    post_7d_2:     `Han pasado 2 semanas desde el vencimiento de tu tratamiento`,
+    post_7d_3:     `Han pasado 3 semanas desde el vencimiento de tu tratamiento`,
+  };
+  
+  const intro = mensajes[reminderType] || 'Es momento de renovar tu tratamiento';
+  
+  return `Hola ${paciente.nombre}, ${intro.toLowerCase()} "${paciente.tratamiento}" (${paciente.posologia}).
+
+Pásate por *${farmaciaNombre}* cuando puedas. ¡Gracias por seguir al pie de tu salud!`;
+}
+
+// ------------------------------------------------------------
 // Cliente WhatsApp (Baileys) — singleton, reconexión automática
 // ------------------------------------------------------------
 let sock = null;
@@ -82,74 +142,73 @@ async function startWhatsApp() {
     
     if (!authState || !authState.creds) {
       throw new Error("No se pudo inicializar auth state con creds válidos");
-}
-
-// El authState original YA tiene la estructura correcta:
-// - creds: objeto con las credenciales
-// - keys: KeyStore con métodos get(key) y set(key, value)
-// Pasar el authState ORIGINAL directamente (lo que Baileys espera)
-safeAuthState = authState;
-console.log("[whatsapp] Pasando authState original a makeWASocket");
-console.log("[whatsapp] safeAuthState.creds existe:", !!safeAuthState.creds);
-console.log("[whatsapp] safeAuthState.keys tiene get/set:", 
-  typeof safeAuthState.keys?.get === 'function' && typeof safeAuthState.keys?.set === 'function');
-console.log("[whatsapp] safeAuthState keys own props:", Object.getOwnPropertyNames(safeAuthState));
-} catch (err) {
-  console.error("[whatsapp] Error fatal cargando auth state:", err.message);
-  throw err;
-}
-
-sock = makeWASocket({
-  auth: safeAuthState,
-  browser: Browsers.macOS("PharmaTrack"),
-  logger: pino({ level: "warn" }),
-  printQRInTerminal: false,
-});
-
-sock.ev.on("creds.update", saveCreds);
-
-// Manejar errores inesperados (ej: timeout en init queries en Render free tier)
-sock.ev.on("connection.update", (update) => {
-  const { connection, qr, lastDisconnect } = update;
-
-  if (qr) {
-    connectionStatus = "qr";
-    console.log("\n\n=========== ESCANEA ESTE QR EN TU WHATSAPP ===========");
-    qrcode.generate(qr, { small: true });
-    console.log("====================================================\n\n");
-  }
-
-  if (connection === "open") {
-    connectionStatus = "open";
-    console.log("[whatsapp] Conexión abierta. Listo para enviar.");
-  }
-
-  if (connection === "close") {
-    connectionStatus = "closed";
-    const code = lastDisconnect?.error?.output?.statusCode;
-    console.warn(`[whatsapp] Conexión cerrada (código ${code}). Reconectando en 5s…`);
-    if (code === DisconnectReason.loggedOut) {
-      console.error("[whatsapp] Sesión cerrada desde el teléfono. Borrá ./auth_baileys para re-escanear QR.");
-    } else {
-      setTimeout(startWhatsApp, 5000);
     }
-  }
-});
 
-// Capturar errores de init queries y forzar reconexión
-sock.ws.on("error", (err) => {
-  console.error("[whatsapp] WebSocket error:", err.message);
-});
-
-sock.ev.on("connection.update", (update) => {
-  if (update.connection === "close") return; // ya manejado arriba
-  
-  // Detectar error de timeout en init queries
-  if (update.lastDisconnect?.error?.output?.statusCode === 408) {
-    console.warn("[whatsapp] Timeout en init queries (408), forzando reconexión...");
-    sock.end(undefined, { description: "init queries timeout", isLoggedOut: false });
+    // El authState original YA tiene la estructura correcta:
+    // - creds: objeto con las credenciales
+    // - keys: KeyStore con métodos get(key) y set(key, value)
+    // Pasar el authState ORIGINAL directamente (lo que Baileys espera)
+    safeAuthState = authState;
+    console.log("[whatsapp] Pasando authState original a makeWASocket");
+    console.log("[whatsapp] safeAuthState.creds existe:", !!safeAuthState.creds);
+    console.log("[whatsapp] safeAuthState.keys tiene get/set:", 
+      typeof safeAuthState.keys?.get === 'function' && typeof safeAuthState.keys?.set === 'function');
+    console.log("[whatsapp] safeAuthState keys own props:", Object.getOwnPropertyNames(safeAuthState));
+  } catch (err) {
+    console.error("[whatsapp] Error fatal cargando auth state:", err.message);
+    throw err;
   }
-});
+
+  sock = makeWASocket({
+    auth: safeAuthState,
+    browser: Browsers.macOS("PharmaTrack"),
+    logger: pino({ level: "warn" }),
+    printQRInTerminal: false,
+  });
+
+  sock.ev.on("creds.update", saveCreds);
+
+  sock.ev.on("connection.update", (update) => {
+    const { connection, qr, lastDisconnect } = update;
+
+    if (qr) {
+      connectionStatus = "qr";
+      console.log("\n\n=========== ESCANEA ESTE QR EN TU WHATSAPP ===========");
+      qrcode.generate(qr, { small: true });
+      console.log("====================================================\n\n");
+    }
+
+    if (connection === "open") {
+      connectionStatus = "open";
+      console.log("[whatsapp] Conexión abierta. Listo para enviar.");
+    }
+
+    if (connection === "close") {
+      connectionStatus = "closed";
+      const code = lastDisconnect?.error?.output?.statusCode;
+      console.warn(`[whatsapp] Conexión cerrada (código ${code}). Reconectando en 5s…`);
+      if (code === DisconnectReason.loggedOut) {
+        console.error("[whatsapp] Sesión cerrada desde el teléfono. Borrá ./auth_baileys para re-escanear QR.");
+      } else {
+        setTimeout(startWhatsApp, 5000);
+      }
+    }
+  });
+
+  // Capturar errores de init queries y forzar reconexión
+  sock.ws.on("error", (err) => {
+    console.error("[whatsapp] WebSocket error:", err.message);
+  });
+
+  sock.ev.on("connection.update", (update) => {
+    if (update.connection === "close") return; // ya manejado arriba
+    
+    // Detectar error de timeout en init queries
+    if (update.lastDisconnect?.error?.output?.statusCode === 408) {
+      console.warn("[whatsapp] Timeout en init queries (408), forzando reconexión...");
+      sock.end(undefined, { description: "init queries timeout", isLoggedOut: false });
+    }
+  });
 }
 
 // ------------------------------------------------------------
@@ -164,28 +223,6 @@ async function sendWhatsApp(phone, message) {
   const jid = `${normalized}@s.whatsapp.net`;
   await sock.sendMessage(jid, { text: message });
   return jid;
-}
-
-// ------------------------------------------------------------
-// Construye el cuerpo del recordatorio
-// ------------------------------------------------------------
-function buildReminderMessage(paciente, farmacia) {
-  return `Hola ${paciente.nombre}, te recordamos que es momento de renovar tu tratamiento "${paciente.tratamiento}" (${paciente.posologia}).
-
-Pásate por *${farmacia}* cuando puedas. ¡Gracias por seguir al pie de tu salud!`;
-}
-
-// ------------------------------------------------------------
-// Calcula el próximo recordatorio
-//   3 días antes de que se acabe, si no responde vuelve un día después,
-//   luego el día del vencimiento.
-//   Post-vencimiento: +3 días, después +7 días por 3 veces.
-//   Acá simplificado: por defecto +7 días (el agente IA puede espaciarlos).
-// ------------------------------------------------------------
-function nextReminderDate(now = new Date()) {
-  const next = new Date(now);
-  next.setDate(next.getDate() + 7);
-  return next.toISOString();
 }
 
 // ------------------------------------------------------------
@@ -232,7 +269,8 @@ app.post("/api/send-reminders", async (req, res) => {
       .from("pacientes")
       .select(`
         id, user_id, nombre, telefono, email, canal_pref,
-        tratamiento, posologia, proximo_recordatorio
+        tratamiento, posologia, proximo_recordatorio,
+        recordatorios_enviados, fecha_vencimiento
       `)
       .eq("activo", true)
       .lte("proximo_recordatorio", now);
@@ -262,18 +300,25 @@ app.post("/api/send-reminders", async (req, res) => {
         const farmaciaNombre =
           userData?.data?.user?.user_metadata?.nombre_farmacia ?? "tu farmacia";
 
+        // Determinar tipo de recordatorio actual
+        const reminderType = getCurrentReminderType(p);
+        if (reminderType === 'completado') {
+          console.log(`[skip] ${p.nombre} ya completó la secuencia de recordatorios`);
+          continue;
+        }
+
         // Envía el mensaje
         if (p.canal_pref === "whatsapp" && p.telefono) {
-          const message = buildReminderMessage(p, farmaciaNombre);
+          const message = buildReminderMessage(p, farmaciaNombre, reminderType);
           await sendWhatsApp(p.telefono, message);
-          console.log(`[whatsapp] enviado a ${p.nombre} (${p.telefono})`);
+          console.log(`[whatsapp] ${reminderType} enviado a ${p.nombre} (${p.telefono})`);
 
           await supabase.from("recordatorios").insert({
             paciente_id: p.id,
             user_id: p.user_id,
             canal: "whatsapp",
             estado: "enviado",
-            tipo: "recordatorio",
+            tipo: reminderType,
             programado_para: p.proximo_recordatorio,
             enviado_en: new Date().toISOString(),
             contenido: message,
@@ -287,12 +332,14 @@ app.post("/api/send-reminders", async (req, res) => {
           continue;
         }
 
-        // Actualiza el paciente: último envío ahora, próximo en +7 días
+        // Calcular PRÓXIMO recordatorio
+        const nextDate = calculateNextReminderDate(p, new Date());
+        
         await supabase
           .from("pacientes")
           .update({
             ultimo_envio: new Date().toISOString(),
-            proximo_recordatorio: nextReminderDate(now),
+            proximo_recordatorio: nextDate,
             recordatorios_enviados: (p.recordatorios_enviados ?? 0) + 1,
           })
           .eq("id", p.id);
@@ -310,7 +357,7 @@ app.post("/api/send-reminders", async (req, res) => {
       sent,
       failed,
       whatsappStatus: connectionStatus,
-      time: new Date().toISOString(),
+      time: now,
     });
   } catch (err) {
     console.error("[send-reminders] error fatal:", err);
