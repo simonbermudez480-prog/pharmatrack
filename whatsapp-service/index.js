@@ -53,6 +53,7 @@ async function startWhatsApp() {
 
   let authState;
   let saveCreds;
+  let plainAuthState;
   try {
     const result = await useMultiFileAuthState(authDir);
     authState = result.state;
@@ -84,9 +85,20 @@ async function startWhatsApp() {
     }
 
     // Crear objeto plano para evitar problemas de Proxy/getters en ESM
-    const plainAuthState = {
+    // keys es un objeto tipo Map con get/set, convertirlo a objeto plano
+    const keysObj = {};
+    if (authState.keys && typeof authState.keys === 'object') {
+      for (const key of Object.keys(authState.keys)) {
+        try {
+          keysObj[key] = authState.keys[key];
+        } catch (e) {
+          // Ignorar getters/setters que fallen
+        }
+      }
+    }
+    plainAuthState = {
       creds: { ...authState.creds },
-      keys: { ...authState.keys },
+      keys: keysObj,
     };
     console.log("[whatsapp] plainAuthState creds keys:", Object.keys(plainAuthState.creds));
     console.log("[whatsapp] plainAuthState keys keys:", Object.keys(plainAuthState.keys));
