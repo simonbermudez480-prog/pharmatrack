@@ -53,7 +53,6 @@ async function startWhatsApp() {
 
   let authState;
   let saveCreds;
-  let plainAuthState;
   try {
     const result = await useMultiFileAuthState(authDir);
     authState = result.state;
@@ -84,88 +83,25 @@ async function startWhatsApp() {
       throw new Error("No se pudo inicializar auth state con creds válidos");
     }
 
-    // Debug: inspeccionar authState.keys en detalle
-    console.log("[whatsapp] authState.keys constructor:", authState.keys?.constructor?.name);
-    console.log("[whatsapp] authState.keys prototype:", Object.getPrototypeOf(authState.keys)?.constructor?.name);
-    console.log("[whatsapp] authState.keys own keys:", Object.getOwnPropertyNames(authState.keys));
-    console.log("[whatsapp] authState.keys symbols:", Object.getOwnPropertySymbols(authState.keys));
-    console.log("[whatsapp] typeof authState.keys.get:", typeof authState.keys?.get);
-    console.log("[whatsapp] typeof authState.keys.set:", typeof authState.keys?.set);
-    console.log("[whatsapp] typeof authState.keys.entries:", typeof authState.keys?.entries);
-    console.log("[whatsapp] typeof authState.keys.forEach:", typeof authState.keys?.forEach);
-    console.log("[whatsapp] Symbol.iterator:", typeof authState.keys?.[Symbol.iterator]);
-
-    // Crear objeto plano para evitar problemas de Proxy/getters en ESM
-    // keys es un Map-like, convertirlo a objeto plano iterando sus entries
-    let keysObj = {};
-    if (authState.keys && typeof authState.keys === 'object') {
-      // Probar si es un Map con entries()
-      if (typeof authState.keys.entries === 'function') {
-        console.log("[whatsapp] Usando entries()");
-        for (const [key, value] of authState.keys.entries()) {
-          keysObj[key] = value;
-        }
-      } 
-      // Probar si tiene forEach (Map-like)
-      else if (typeof authState.keys.forEach === 'function') {
-        console.log("[whatsapp] Usando forEach()");
-        authState.keys.forEach((value, key) => {
-          keysObj[key] = value;
-        });
-      }
-      // Probar si es iterable
-      else if (typeof authState.keys[Symbol.iterator] === 'function') {
-        console.log("[whatsapp] Usando Symbol.iterator");
-        for (const [key, value] of authState.keys) {
-          keysObj[key] = value;
-        }
-      }
-      // Si tiene get/set pero no iteradores, intentar obtener claves conocidas
-      else if (typeof authState.keys.get === 'function') {
-        console.log("[whatsapp] keys solo tiene get/set, intentando claves conocidas de Baileys...");
-        // Claves típicas del KeyStore de Baileys
-        const knownKeys = [
-          'preKey', 'session', 'senderKey', 'appStateSyncKey', 
-          'senderKeyMemory', 'preKeyId', 'signedPreKeyId'
-        ];
-        for (const key of knownKeys) {
-          try {
-            const value = authState.keys.get(key);
-            if (value !== undefined) {
-              keysObj[key] = value;
-            }
-          } catch (e) {
-            // Ignorar
-          }
-        }
-      }
-      // Fallback: Object.keys (solo para objetos planos)
-      else {
-        console.log("[whatsapp] Usando Object.keys fallback");
-        for (const key of Object.keys(authState.keys)) {
-          try {
-            keysObj[key] = authState.keys[key];
-          } catch (e) {
-            // Ignorar getters/setters que fallen
-          }
-        }
-      }
-    }
-    console.log("[whatsapp] keysObj keys:", Object.keys(keysObj));
-    
-    plainAuthState = {
-      creds: { ...authState.creds },
-      keys: keysObj,
+    // El authState original YA tiene la estructura correcta:
+    // - creds: objeto con las credenciales
+    // - keys: KeyStore con métodos get(key) y set(key, value)
+    // NO convertir a objeto plano, eso rompe el KeyStore.
+    // El problema del destructuring era por Proxy; usamos Object.assign para crear un objeto plano simple
+    // que mantenga la referencia a keys (que SÍ debe tener get/set).
+    const safeAuthState = {
+      creds: authState.creds,
+      keys: authState.keys,  // Mantener el KeyStore original con get/set
     };
-    console.log("[whatsapp] plainAuthState creds keys:", Object.keys(plainAuthState.creds));
-    console.log("[whatsapp] plainAuthState keys keys:", Object.keys(plainAuthState.keys));
+    console.log("[whatsapp] safeAuthState listo, keys tiene get/set:", 
+      typeof safeAuthState.keys?.get === 'function' && typeof safeAuthState.keys?.set === 'function');
   } catch (err) {
     console.error("[whatsapp] Error fatal cargando auth state:", err.message);
     throw err;
   }
 
   sock = makeWASocket({
-    authState: plainAuthState,
+    authState: safeAuthState,
     browser: Browsers.macOS("PharmaTrack"),
     logger: pino({ level: "warn" }),
     printQRInTerminal: false,
