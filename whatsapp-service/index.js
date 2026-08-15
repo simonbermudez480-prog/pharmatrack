@@ -59,6 +59,11 @@ async function startWhatsApp() {
     saveCreds = result.saveCreds;
     console.log("[whatsapp] Auth state cargado:", Object.keys(authState || {}));
     console.log("[whatsapp] Creds existe:", !!authState?.creds);
+    console.log("[whatsapp] Keys existe:", !!authState?.keys);
+    console.log("[whatsapp] Tipo de creds:", typeof authState?.creds);
+    if (authState?.creds) {
+      console.log("[whatsapp] Creds keys:", Object.keys(authState.creds));
+    }
     
     // Si no hay creds, forzar inicialización
     if (!authState || !authState.creds) {
