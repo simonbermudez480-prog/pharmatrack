@@ -1,8 +1,7 @@
-FROM node:20-slim
+FROM node:22-slim
 
 WORKDIR /app
 
-# Instalar git (requerido por dependencias de Baileys que clonan de GitHub)
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 COPY package.json ./
