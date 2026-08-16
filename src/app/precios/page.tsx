@@ -71,8 +71,9 @@ export default async function PreciosPage() {
     : { data: null };
 
   const isLoggedIn = !!user;
+  // Mostrar banner solo si tuvo trial/suscripción y ya venció o canceló
   const isVencido = user
-    ? !sub || sub.estado === "vencida" || sub.estado === "cancelada"
+    ? sub && (sub.estado === "vencida" || sub.estado === "cancelada")
     : false;
 
   return (
@@ -80,7 +81,7 @@ export default async function PreciosPage() {
       <Navbar />
       <main className="flex-1 pt-32 pb-20">
         <div className="mx-auto max-w-7xl px-6 lg:px-10">
-          {/* Banner si el trial/pago venció */}
+          {/* Banner solo si venció trial */}
           {isLoggedIn && isVencido && (
             <div className="mb-8 rounded-card bg-accent/10 border border-accent/20 px-5 py-4 text-center text-forest">
               <strong>Tu período de prueba terminó.</strong> Elegí un plan para
@@ -178,7 +179,7 @@ export default async function PreciosPage() {
 
                 <div className="mt-8">
                   <Link
-                    href={isLoggedIn ? `/activar/${plan.tier}` : `/registro`}
+                    href={isLoggedIn ? `/activar/${plan.tier}` : `/registro?plan=${plan.tier}`}
                     className={`inline-flex items-center justify-center w-full h-12 px-6 rounded-btn font-bold text-sm transition-colors ${
                       plan.highlighted
                         ? "bg-accent text-white hover:bg-accent-soft"
