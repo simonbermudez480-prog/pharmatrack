@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createSubscription, PLAN_INFO } from "@/lib/paypal";
 import type { PlanTier } from "@/lib/paypal";
 
@@ -30,6 +31,19 @@ export async function POST(request: Request) {
       return_url: returnUrl,
       cancel_url: cancelUrl,
     });
+
+    // Guardar suscripción pendiente en BD
+    const supabaseAdmin = await createAdminClient();
+    await supabaseAdmin.from("suscripciones").upsert({
+      user_id: user.id,
+      plan: planParam,
+      estado: "pendiente",
+      paypal_subscription_id: id,
+      inicio_trial: null,
+      fin_trial: null,
+      inicio_suscripcion: null,
+      fin_periodo: null,
+    }, { onConflict: "user_id" });
 
     console.log("[paypal] Subscription created OK:", { id, approveUrl });
 

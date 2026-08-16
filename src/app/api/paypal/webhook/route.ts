@@ -7,7 +7,7 @@ import { verifyWebhook, getSubscription, PLAN_TIERS, type PlanTier } from "@/lib
  * URL a configurar en PayPal Dashboard → My Apps → Webhooks:
  *   https://TU_DOMINIO/api/paypal/webhook
  * Eventos que procesamos:
- *   - BILLING.SUBSCRIPTION.ACTIVATED   -> marcar estado 'activa'
+ *   - BILLING.SUBSCRIPTION.ACTIVATED   -> marcar estado 'activa' + trial si aplica
  *   - BILLING.SUBSCRIPTION.CANCELLED   -> marcar estado 'cancelada'
  *   - BILLING.SUBSCRIPTION.EXPIRED     -> marcar estado 'vencida'
  *   - PAYMENT.SALE.COMPLETED            -> actualizar fin_periodo
@@ -68,11 +68,19 @@ export async function POST(request: Request) {
       case "BILLING.SUBSCRIPTION.ACTIVATED": {
         patch.estado = "activa";
         patch.inicio_suscripcion = new Date().toISOString();
-        // Trae info real de PayPal para tener la próxima renovación
+        // Trae info real de PayPal para tener la próxima renovación y trial
         try {
           const sub = await getSubscription(subscriptionId);
           if (sub.billing_info?.next_billing_time) {
             patch.fin_periodo = sub.billing_info.next_billing_time;
+            // Si next_billing_time está a ~3 días, es el fin del trial
+            const nextBilling = new Date(sub.billing_info.next_billing_time);
+            const now = new Date();
+            const diffDays = (nextBilling.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+            if (diffDays <= 5 && diffDays > 0) {
+              patch.fin_trial = nextBilling.toISOString();
+              patch.inicio_trial = now.toISOString();
+            }
           }
           if (sub.subscriber?.email_address) {
             patch.paypal_email = sub.subscriber.email_address;
